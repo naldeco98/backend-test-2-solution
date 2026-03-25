@@ -129,5 +129,29 @@ RSpec.describe Reservation, type: :model do
         expect(reservation.errors[:base]).to include('Reservations can only be between 9:00 AM and 6:00 PM, Monday through Friday')
       end
     end
+
+    describe 'capacity restriction by user (BR4)' do
+      it 'is valid if user is an admin even if room capacity is huge' do
+        admin = create(:user, is_admin: true, max_capacity_allowed: 5)
+        room = create(:room, capacity: 50)
+        reservation = build(:reservation, user: admin, room: room)
+        expect(reservation).to be_valid
+      end
+
+      it 'is valid if regular user max_capacity is >= room capacity' do
+        user = create(:user, is_admin: false, max_capacity_allowed: 10)
+        room = create(:room, capacity: 10)
+        reservation = build(:reservation, user: user, room: room)
+        expect(reservation).to be_valid
+      end
+
+      it 'is invalid if regular user max_capacity is < room capacity' do
+        user = create(:user, is_admin: false, max_capacity_allowed: 5)
+        room = create(:room, capacity: 10)
+        reservation = build(:reservation, user: user, room: room)
+        expect(reservation).not_to be_valid
+        expect(reservation.errors[:base]).to include('This room exceeds your maximum allowed capacity')
+      end
+    end
   end
 end

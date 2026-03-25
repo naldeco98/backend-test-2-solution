@@ -6,6 +6,7 @@ class Reservation < ApplicationRecord
   validate :ends_at_after_starts_at
   validate :duration_not_exceeded
   validate :within_business_hours
+  validate :room_capacity_allowed
   validate :no_overlap
 
   def no_overlap
@@ -55,6 +56,15 @@ class Reservation < ApplicationRecord
 
     if starts_at < business_start || ends_at > business_end
       errors.add(:base, 'Reservations can only be between 9:00 AM and 6:00 PM, Monday through Friday')
+    end
+  end
+
+  def room_capacity_allowed
+    return if user.blank? || room.blank?
+    return if user.is_admin?
+
+    if room.capacity > user.max_capacity_allowed
+      errors.add(:base, 'This room exceeds your maximum allowed capacity')
     end
   end
 end
