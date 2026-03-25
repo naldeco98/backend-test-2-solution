@@ -2,6 +2,8 @@ class Reservation < ApplicationRecord
   belongs_to :room
   belongs_to :user
 
+  scope :active, -> { where(cancelled_at: nil) }
+
   attr_accessor :recurring_execution
   after_create :create_recurring_occurrences, if: -> { recurring.present? && !recurring_execution }
 
