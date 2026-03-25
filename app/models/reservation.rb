@@ -8,6 +8,7 @@ class Reservation < ApplicationRecord
   validate :within_business_hours
   validate :room_capacity_allowed
   validate :active_reservation_limit
+  validate :advance_cancellation_required
   validate :no_overlap
 
   def no_overlap
@@ -81,6 +82,14 @@ class Reservation < ApplicationRecord
 
     if active_count >= 3
       errors.add(:base, 'You have reached the limit of 3 active reservations')
+    end
+  end
+
+  def advance_cancellation_required
+    return unless cancelled_at_changed? && cancelled_at.present?
+
+    if starts_at - Time.current < 60.minutes
+      errors.add(:base, 'Reservations can only be cancelled at least 60 minutes before its start time')
     end
   end
 end

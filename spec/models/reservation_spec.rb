@@ -4,8 +4,8 @@ RSpec.describe Reservation, type: :model do
   describe 'validations' do
     let(:room) { create(:room) }
     let(:user) { create(:user) }
-    let(:start_time) { Time.zone.parse('2026-03-25 10:00:00') }
-    let(:end_time) { Time.zone.parse('2026-03-25 11:00:00') }
+    let(:start_time) { Time.zone.parse('2026-03-25 10:00:00') + 1.day }
+    let(:end_time) { Time.zone.parse('2026-03-25 11:00:00') + 1.day }
 
     it 'is valid if there are no overlapping reservations' do
       reservation = build(:reservation, room: room, user: user, starts_at: start_time, ends_at: end_time)
@@ -192,6 +192,34 @@ RSpec.describe Reservation, type: :model do
         end
         reservation = build(:reservation, user: admin, room: room, starts_at: future_time + 6.days, ends_at: future_time + 6.days + 1.hour) # Wed
         expect(reservation).to be_valid
+      end
+    end
+
+    describe 'advance cancellation (BR6)' do
+      let(:room) { create(:room) }
+      let(:user) { create(:user) }
+
+      it 'allows cancellation if it is more than 60 minutes in advance' do
+        starts_at = Time.current + 70.minutes
+        reservation = create(:reservation, room: room, user: user, starts_at: starts_at, ends_at: starts_at + 1.hour)
+        reservation.cancelled_at = Time.current
+        expect(reservation).to be_valid
+      end
+
+      it 'prevents cancellation if it is less than 60 minutes in advance' do
+        starts_at = Time.current + 50.minutes
+        reservation = create(:reservation, room: room, user: user, starts_at: starts_at, ends_at: starts_at + 1.hour)
+        reservation.cancelled_at = Time.current
+        expect(reservation).not_to be_valid
+        expect(reservation.errors[:base]).to include('Reservations can only be cancelled at least 60 minutes before its start time')
+      end
+
+      it 'prevents cancellation if it has already started' do
+        starts_at = Time.current - 10.minutes
+        reservation = create(:reservation, room: room, user: user, starts_at: starts_at, ends_at: starts_at + 1.hour)
+        reservation.cancelled_at = Time.current
+        expect(reservation).not_to be_valid
+        expect(reservation.errors[:base]).to include('Reservations can only be cancelled at least 60 minutes before its start time')
       end
     end
   end
