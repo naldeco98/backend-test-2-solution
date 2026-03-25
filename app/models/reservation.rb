@@ -4,6 +4,7 @@ class Reservation < ApplicationRecord
 
   validates :starts_at, :ends_at, presence: true
   validate :ends_at_after_starts_at
+  validate :duration_not_exceeded
   validate :no_overlap
 
   def no_overlap
@@ -26,6 +27,14 @@ class Reservation < ApplicationRecord
 
     if ends_at <= starts_at
       errors.add(:ends_at, 'must be after starts_at')
+    end
+  end
+
+  def duration_not_exceeded
+    return if starts_at.blank? || ends_at.blank?
+
+    if ends_at - starts_at > 4.hours
+      errors.add(:ends_at, 'cannot be more than 4 hours after starts_at')
     end
   end
 end
