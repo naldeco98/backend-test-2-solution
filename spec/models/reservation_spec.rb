@@ -153,5 +153,46 @@ RSpec.describe Reservation, type: :model do
         expect(reservation.errors[:base]).to include('This room exceeds your maximum allowed capacity')
       end
     end
+
+    describe 'active reservation limit (BR5)' do
+      let(:room) { create(:room) }
+      let(:user) { create(:user, is_admin: false) }
+      let(:future_time) { Time.zone.parse('2026-03-26 10:00:00') } # Thursday
+
+      it 'is valid if user has 2 active future reservations' do
+        [0, 1].each do |i|
+          create(:reservation, user: user, room: room, starts_at: future_time + i.days, ends_at: future_time + i.days + 1.hour)
+        end
+        reservation = build(:reservation, user: user, room: room, starts_at: future_time + 4.days, ends_at: future_time + 4.days + 1.hour) # Monday
+        expect(reservation).to be_valid
+      end
+
+      it 'is invalid if user already has 3 active future reservations' do
+        [0, 1, 4].each do |i| # Thu, Fri, Mon
+          create(:reservation, user: user, room: room, starts_at: future_time + i.days, ends_at: future_time + i.days + 1.hour)
+        end
+        reservation = build(:reservation, user: user, room: room, starts_at: future_time + 5.days, ends_at: future_time + 5.days + 1.hour) # Tue
+        expect(reservation).not_to be_valid
+        expect(reservation.errors[:base]).to include('You have reached the limit of 3 active reservations')
+      end
+
+      it 'is valid if user has 3 reservations but one is cancelled' do
+        [0, 1, 4].each do |i|
+          create(:reservation, user: user, room: room, starts_at: future_time + i.days, ends_at: future_time + i.days + 1.hour)
+        end
+        user.reservations.first.update!(cancelled_at: Time.current)
+        reservation = build(:reservation, user: user, room: room, starts_at: future_time + 5.days, ends_at: future_time + 5.days + 1.hour)
+        expect(reservation).to be_valid
+      end
+
+      it 'is valid for admin regardless of count' do
+        admin = create(:user, is_admin: true)
+        [0, 1, 4, 5].each do |i|
+          create(:reservation, user: admin, room: room, starts_at: future_time + i.days, ends_at: future_time + i.days + 1.hour)
+        end
+        reservation = build(:reservation, user: admin, room: room, starts_at: future_time + 6.days, ends_at: future_time + 6.days + 1.hour) # Wed
+        expect(reservation).to be_valid
+      end
+    end
   end
 end

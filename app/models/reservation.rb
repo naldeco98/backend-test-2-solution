@@ -7,6 +7,7 @@ class Reservation < ApplicationRecord
   validate :duration_not_exceeded
   validate :within_business_hours
   validate :room_capacity_allowed
+  validate :active_reservation_limit
   validate :no_overlap
 
   def no_overlap
@@ -65,6 +66,21 @@ class Reservation < ApplicationRecord
 
     if room.capacity > user.max_capacity_allowed
       errors.add(:base, 'This room exceeds your maximum allowed capacity')
+    end
+  end
+
+  def active_reservation_limit
+    return if user.blank?
+    return if user.is_admin?
+
+    active_count = user.reservations
+                       .where('starts_at >= ?', Time.current)
+                       .where(cancelled_at: nil)
+                       .where.not(id: id)
+                       .count
+
+    if active_count >= 3
+      errors.add(:base, 'You have reached the limit of 3 active reservations')
     end
   end
 end
