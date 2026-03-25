@@ -2,6 +2,9 @@ class Reservation < ApplicationRecord
   belongs_to :room
   belongs_to :user
 
+  attr_accessor :recurring_execution
+  after_create :create_recurring_occurrences, if: -> { recurring.present? && !recurring_execution }
+
   validates :starts_at, :ends_at, presence: true
   validate :ends_at_after_starts_at
   validate :duration_not_exceeded
@@ -90,6 +93,29 @@ class Reservation < ApplicationRecord
 
     if starts_at - Time.current < 60.minutes
       errors.add(:base, 'Reservations can only be cancelled at least 60 minutes before its start time')
+    end
+  end
+
+  def create_recurring_occurrences
+    step = case recurring
+           when 'daily' then 1.day
+           when 'weekly' then 1.week
+           else return
+           end
+
+    current_start = starts_at + step
+    current_end = ends_at + step
+
+    while current_start.to_date <= recurring_until
+      occurrence = self.dup
+      occurrence.starts_at = current_start
+      occurrence.ends_at = current_end
+      occurrence.recurring_execution = true
+
+      occurrence.save!
+
+      current_start += step
+      current_end += step
     end
   end
 end

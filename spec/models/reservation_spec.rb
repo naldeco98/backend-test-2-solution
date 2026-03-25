@@ -222,5 +222,36 @@ RSpec.describe Reservation, type: :model do
         expect(reservation.errors[:base]).to include('Reservations can only be cancelled at least 60 minutes before its start time')
       end
     end
+
+    describe 'recurring reservations (BR7)' do
+      let(:room) { create(:room) }
+      let(:admin) { create(:user, is_admin: true) } # Admin to bypass BR5 limit
+      let(:monday) { Time.zone.parse('2026-03-30 10:00:00') } # Monday next week
+
+      it 'creates daily reservations until recurring_until' do
+        expect {
+          create(:reservation, room: room, user: admin, starts_at: monday, ends_at: monday + 1.hour, recurring: 'daily', recurring_until: monday + 2.days)
+        }.to change(Reservation, :count).by(3) # Mon, Tue, Wed
+      end
+
+      it 'creates weekly reservations until recurring_until' do
+        expect {
+          create(:reservation, room: room, user: admin, starts_at: monday, ends_at: monday + 1.hour, recurring: 'weekly', recurring_until: monday + 14.days)
+        }.to change(Reservation, :count).by(3) # Mon, Mon+7, Mon+14
+      end
+
+      it 'rolls back all if one occurrence violates a rule (BR1-BR5)' do
+        # Create an overlap on Wednesday
+        wednesday = monday + 2.days
+        create(:reservation, room: room, user: admin, starts_at: wednesday, ends_at: wednesday + 1.hour)
+
+        # The initial reservation + 2 occurrences (Tue, Wed). Wed will overlap.
+        expect {
+          expect {
+            create(:reservation, room: room, user: admin, starts_at: monday, ends_at: monday + 1.hour, recurring: 'daily', recurring_until: monday + 2.days)
+          }.to raise_error(ActiveRecord::RecordInvalid)
+        }.not_to change(Reservation, :count) # Should remain 1 (the manual overlap one)
+      end
+    end
   end
 end
