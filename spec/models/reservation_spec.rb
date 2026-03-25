@@ -94,6 +94,12 @@ RSpec.describe Reservation, type: :model do
         expect(reservation).to be_valid
       end
 
+      it 'is valid if it ends exactly at 6:00 PM' do
+        monday = Time.zone.parse('2026-03-23 15:00:00')
+        reservation = build(:reservation, room: room, user: user, starts_at: monday, ends_at: monday + 3.hours)
+        expect(reservation).to be_valid
+      end
+
       it 'is invalid if it starts before 9:00 AM' do
         monday = Time.zone.parse('2026-03-23 08:59:00')
         reservation = build(:reservation, room: room, user: user, starts_at: monday, ends_at: monday + 1.hour)
