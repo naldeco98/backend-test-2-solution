@@ -39,3 +39,6 @@ yarn-debug.log*
 
 # Ignore macOS files
 .DS_Store
+
+# Ignore vendor folder
+/vendor
